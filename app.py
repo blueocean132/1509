@@ -1,61 +1,66 @@
 import requests
+from datetime import datetime
+import urllib3
+
+# SSL 경고 메시지 무시 (필요한 경우에만 사용)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def get_exim_exchange_rate(api_key, target_keyword):
-    # 1. 한국수출입은행 API 주소 및 파라미터
     url = "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON"
+    
+    # 1. 오늘 날짜를 YYYYMMDD 형식으로 추출
+    today = datetime.now().strftime("%Y%m%d")
+    
     params = {
         "authkey": api_key,
+        "searchdate": today, # 날짜 파라미터 추가
         "data": "AP01"
     }
 
     try:
-        response = requests.get(url, params=params)
+        # SSL 인증서 검증 이슈가 있다면 verify=False 추가
+        response = requests.get(url, params=params, verify=False)
         response.raise_for_status()
 
         data = response.json()
 
+        # API 응답 결과가 리스트가 아닌 에러 메시지(dict)일 경우 처리
+        if isinstance(data, dict):
+             print(f"⚠️ API 서버 응답 오류: {data.get('errMsg', '알 수 없는 에러')}")
+             return
+
         if not data:
-            print("\n[알림] 텅 빈 데이터를 받았습니다!")
-            print("원인: 오늘이 주말/공휴일이거나, 아직 오늘의 환율이 고시되지 않은 시간입니다.")
+            print(f"\n[알림] {today} 날짜의 데이터를 찾을 수 없습니다.")
+            print("원인: 주말/공휴일이거나, 영업시간(오전 11시 이전) 전일 수 있습니다.")
             return
 
-        print("\n✅ 성공! 수출입은행 환율 정보를 정상적으로 받아왔습니다.")
+        print(f"\n✅ {today} 기준 수출입은행 환율 정보를 정상적으로 받아왔습니다.")
         print("-" * 50)
 
-        # 2. 회원님이 입력한 검색어(target_keyword)로 데이터 뒤지기
-        # (영어를 입력했을 경우를 대비해 대문자로 변환해서 비교)
         target_keyword_upper = target_keyword.upper()
         found = False
 
         for item in data:
-            cur_unit = item.get("cur_unit", "") # 예: USD, JPY(100)
-            cur_nm = item.get("cur_nm", "")     # 예: 미국 달러, 일본 옌
-            rate = item.get("deal_bas_r", "")   # 예: 1,300.50
+            cur_unit = item.get("cur_unit", "")
+            cur_nm = item.get("cur_nm", "")
+            # 결과값에 콤마(,)가 포함되어 문자열로 오므로 숫자로 계산할 땐 처리가 필요합니다.
+            rate = item.get("deal_bas_r", "") 
 
-            # 입력한 글자가 '영어 코드'에 있거나 '한국어 이름'에 포함되어 있다면 출력!
             if (target_keyword_upper in cur_unit) or (target_keyword in cur_nm):
-                print(f"💰 현재 {cur_unit} ({cur_nm}) = {rate} KRW (매매기준율) 입니다.")
+                print(f"💰 현재 {cur_unit} ({cur_nm}) = {rate} KRW (매매기준율)")
                 found = True
 
-        print("-" * 50)
-
-        # 3. 목록을 다 뒤졌는데도 못 찾았을 때의 안내문
         if not found:
-            print(f"'{target_keyword}'에 대한 환율 정보를 목록에서 찾을 수 없습니다.")
-            print("팁: '미국', '일본', '유로' 또는 'USD', 'JPY' 등으로 다시 검색해 보세요.")
+            print(f"'{target_keyword}'에 대한 정보를 찾을 수 없습니다.")
 
     except Exception as e:
          print(f"실행 중 에러가 발생했습니다: {e}")
 
-# ==========================================
 # 실행 부분
-# ==========================================
 if __name__ == "__main__":
+    # 보안을 위해 실제 서비스 시에는 환경 변수 등을 활용하세요!
     MY_API_KEY = "PSnnFDZjnKZmnYoIN6lwQoH067QBpOIC"
 
-    # 코랩 실행 시 사용자에게 입력을 받는 창을 띄웁니다.
-    print("원하시는 국가의 환율을 검색해 드립니다.")
-    user_input = input("조회하고 싶은 나라 이름(예: 미국, 일본)이나 통화 코드(예: USD, EUR)를 입력하세요: ")
-
-    # 사용자가 입력한 검색어를 함수에 전달합니다.
+    print("--- 환율 조회 프로그램 ---")
+    user_input = input("국가명 또는 통화코드(예: 미국, USD): ")
     get_exim_exchange_rate(MY_API_KEY, user_input)
