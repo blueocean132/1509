@@ -4,7 +4,7 @@ from datetime import datetime
 
 # 페이지 제목 설정
 st.set_page_config(page_title="환율 조회 앱", page_icon="💰")
-st.title("🏦 수출입은행 실시간 환율 조회")
+st.title("🏦 수출입은행 실시간 환율 조회(1509 송기석)")
 
 def get_exim_exchange_rate(api_key, target_keyword):
     url = "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON"
